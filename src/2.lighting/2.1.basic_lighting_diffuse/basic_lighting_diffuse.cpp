@@ -11,20 +11,20 @@
 
 #include <iostream>
 
-void framebuffer_size_callback(GLFWwindow* window, int width, int height);
-void mouse_callback(GLFWwindow* window, double xpos, double ypos);
-void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
+void callback_fbsz(GLFWwindow* window, int width, int height);
+void callback_cur(GLFWwindow* window, double xpos, double ypos);
+void callback_scroll(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow *window);
 
-// settings
-const unsigned int SCR_WIDTH = 800;
-const unsigned int SCR_HEIGHT = 600;
+/**
+ * # Constant value
+ * screen width and height does not require memory allocation.
+ */
+#define SCR_WIDTH   800 /** @brief Screen width */
+#define SCR_HEIGHT  600 /** @brief Screen height */
 
 // camera
 Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
-float lastX = SCR_WIDTH / 2.0f;
-float lastY = SCR_HEIGHT / 2.0f;
-bool firstMouse = true;
 
 // timing
 float deltaTime = 0.0f;	
@@ -35,30 +35,49 @@ glm::vec3 lightPos(1.2f, 1.0f, 2.0f);
 
 int main()
 {
-    // glfw: initialize and configure
-    // ------------------------------
+    /* glfw: initialize and configure. */
     glfwInit();
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    /* Majour version should be 3 */
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);  
+    /* Minour version should be 3 */
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);  
+    /* Hiding old API's */
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  
 
 #ifdef __APPLE__
+    /** Apple wants forward-compatibility for some reason. */
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
 
     // glfw window creation
     // --------------------
-    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL", NULL, NULL);
-    if (window == NULL)
+    GLFWwindow* window = glfwCreateWindow(
+        SCR_WIDTH       /* Screen width */
+        , SCR_HEIGHT    /* Screen height */
+        , "LearnOpenGL" /* Window's name */
+        , NULL, NULL    /* Windowed mode, do not share data. */
+    );
+    if (!window)
     {
-        std::cout << "Failed to create GLFW window" << std::endl;
+        /* `window` went null. Handling exception. */
+        printf("Failed to create GLFW window. Error: %d\n", glGetError());
+        /* Terminating, no further execution seems valid. */
         glfwTerminate();
         return -1;
     }
+
+    /* `window`  will therefore be overseen by OpenGL. */
     glfwMakeContextCurrent(window);
-    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-    glfwSetCursorPosCallback(window, mouse_callback);
-    glfwSetScrollCallback(window, scroll_callback);
+
+    /**
+     * Some events (by users or OS or whatever) could emerge.
+     * GLFW could see for some, and trigger some functions.
+     * 
+     * You may utilise it for I/O controls.
+     */
+    glfwSetFramebufferSizeCallback(window, callback_fbsz);
+    glfwSetCursorPosCallback(window, callback_cur);
+    glfwSetScrollCallback(window, callback_scroll);
 
     // tell GLFW to capture our mouse
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -134,6 +153,7 @@ int main()
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
     glBindVertexArray(cubeVAO);
+    
 
     // position attribute
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
@@ -170,8 +190,8 @@ int main()
 
         // render
         // ------
-        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 
         // be sure to activate shader when setting uniforms/drawing objects
         lightingShader.use();
@@ -242,42 +262,85 @@ void processInput(GLFWwindow *window)
         camera.ProcessKeyboard(RIGHT, deltaTime);
 }
 
-// glfw: whenever the window size changed (by OS or user resize) this callback function executes
-// ---------------------------------------------------------------------------------------------
-void framebuffer_size_callback(GLFWwindow* window, int width, int height)
+/**
+ * Called on window resizing for any reason.
+ */
+void callback_fbsz(GLFWwindow* window, int width, int height)
 {
-    // make sure the viewport matches the new window dimensions; note that width and 
-    // height will be significantly larger than specified on retina displays.
+    /* Resizing the frame buffer as setting the viewport. */
     glViewport(0, 0, width, height);
 }
 
 
-// glfw: whenever the mouse moves, this callback is called
-// -------------------------------------------------------
-void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
+/**
+ * @brief
+ * glfw: whenever the mouse moves, this callback is called
+ * @param window    Window
+ * @param xposIn    New position (x)
+ * @param yposIn    New position (y)
+ * 
+ * @see glfwSetCursorPosCallback(window, callback_cur);
+ */
+void callback_cur(GLFWwindow* window, double xposIn, double yposIn)
 {
-    float xpos = static_cast<float>(xposIn);
-    float ypos = static_cast<float>(yposIn);
+    /** 
+     * @brief 
+     * meant to store the last coordinate of the cursor. 
+     * 
+     * @details
+     * Unlike global variables, those are not necessary to be seen by others.
+     * But still they need to live until the programme ends.
+     * */
+    static float lastX, lastY;
+    static bool isfirst = false;
 
-    if (firstMouse)
+    /** 
+     * External global variable `camera` needed for this function. 
+     * This is a hint that there's a global variable symboled as `camera`.
+     * 
+     * @see Camera::ProcessMouseMovement
+     * */
+    extern Camera camera;
+
+/** brief Explicit casting. */
+#define xpos    static_cast<float>(xposIn)
+#define ypos    static_cast<float>(yposIn)
+
+/** 
+ * Getting the difference(aka offset) from the last one.
+ * For y is reversed since y-coordinates go from bottom to top.
+ *  */
+#define xoffset (xpos - lastX)
+#define yoffset (lastY - ypos)
+
+    if (isfirst)
     {
-        lastX = xpos;
-        lastY = ypos;
-        firstMouse = false;
+        /** 
+         * It's on first running.
+         * 
+         * Initialising the variable assigning 
+         * the first cursor position since the programme starts.
+         */
+        lastX = xpos; lastY = ypos;
+        isfirst = true; /* is not first-run any more. */
     }
 
-    float xoffset = xpos - lastX;
-    float yoffset = lastY - ypos; // reversed since y-coordinates go from bottom to top
+    /** Call ProcessMouseMovement with calculated offset. */
+    camera.ProcessMouseMovement(xoffset, yoffset);
 
+    /** Renewing the last coordinates as inputs. */
     lastX = xpos;
     lastY = ypos;
 
-    camera.ProcessMouseMovement(xoffset, yoffset);
+#undef xpos
+#undef ypos
+#undef xoffset
+#undef yoffset
 }
 
 // glfw: whenever the mouse scroll wheel scrolls, this callback is called
 // ----------------------------------------------------------------------
-void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+void callback_scroll(GLFWwindow* window, double xoffset, double yoffset)
 {
     camera.ProcessMouseScroll(static_cast<float>(yoffset));
 }

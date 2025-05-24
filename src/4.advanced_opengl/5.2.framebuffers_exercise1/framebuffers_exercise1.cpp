@@ -249,10 +249,10 @@ int main()
 
         shader.use();
         glm::mat4 model = glm::mat4(1.0f);
-        camera.Yaw   += 180.0f; // rotate the camera's yaw 180 degrees around
+        camera.EulerAngles.Yaw   += 180.0f; // rotate the camera's yaw 180 degrees around
         camera.ProcessMouseMovement(0, 0, false); // call this to make sure it updates its camera vectors, note that we disable pitch constrains for this specific case (otherwise we can't reverse camera's pitch values)
         glm::mat4 view = camera.GetViewMatrix();
-        camera.Yaw   -= 180.0f; // reset it back to its original orientation
+        camera.EulerAngles.Yaw   -= 180.0f; // reset it back to its original orientation
         camera.ProcessMouseMovement(0, 0, true); 
         glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
         shader.setMat4("view", view);
